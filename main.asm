@@ -30,20 +30,22 @@ INIT
     CLRF TRISA ; Define port A as an Output for the 7-segments/transistor AND for AN5 for the lecture of A/D Convertor
     
     ; **** A/D Module ****
-    MOVLW b'00010101' ; AN5 is the input Port 3
+    MOVLW b'00010001' ; (RA5/AN4) as the input for the AD Convertor + ADON
     MOVWF ADCON0
     
     MOVLW b'00001001' ; AN0 to AN5 are Analog
     MOVWF ADCON1
     
-    MOVLW b'00000000'
+    MOVLW b'10000000'
     MOVWF ADCON2
     
     ; Interrupts of A/D
     BCF PIR1, ADIF ; Clear the interrupt bit
     BSF PIE1, ADIE ; Enable the A/D interrupt 
-    BSF INTCON, GIE/GIEH
+    BSF INTCON, GIE/GIEH ; Global Interrupt Enable bit
+    
     BSF TRISA, TRISA5 ; A5 as an Input for the AD interrupt
+    
     CLRF PORTB ; Clearing port B
     CLRF TRISB ; Setting port B as the output of the A/D Result
     
@@ -100,6 +102,7 @@ DISPLAY
     RETURN
     
 MAIN
+    BSF ADCON0, GO/DONE
     CALL DISPLAY
     GOTO MAIN
 
