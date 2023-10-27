@@ -1,4 +1,4 @@
-#include "p18f4550.inc"
+#include <p18F4550.inc>
 
 ;Constant variable
 COUNT	equ b'0000111'
@@ -12,58 +12,50 @@ VARLCD6	equ b'1111101'
 VARLCD7	equ b'0000111'
 VARLCD8	equ b'1111111'
 VARLCD9	equ b'1101111'
-	
-; Setting the Start and Interrupts
+    
 ORG 0x0000
-    GOTO INIT ; Init the PIC at the start of the program
+    GOTO INIT
 ORG 0x0008
-    GOTO IRQ_HANDLE ; High Priority Interrupts
-ORG 0x0018
-    GOTO MAIN ; Low Priority Interrupts 
-    
-; Init the PIC18F4550 Board
+    GOTO IRQ_HANDLE
+
 INIT
-    ; **** 7 Segments ****
-    CLRF PORTD ; Cleaning the 7 Segments port D
-    CLRF TRISD ; Define port D as an Output for the 7 Segments
+    MOVLW b'00100000' ; On active que le Port 5 du port A en Input, le reste est en output pour le 7 segment.
+    MOVWF TRISA
     CLRF PORTA ; Cleaning the 7-segments/transistors port A
-    CLRF TRISA ; Define port A as an Output for the 7-segments/transistor AND for AN5 for the lecture of A/D Convertor
     
-    ; **** A/D Module ****
-    MOVLW b'00010001' ; (RA5/AN4) as the input for the AD Convertor + ADON
+    CLRF PORTC ; Affichage du resultat A/D sur le port C
+    CLRF TRISC
+    
+    CLRF PORTD
+    CLRF TRISD
+
+    ; Configuration of the AD Interrupts / ADCON0
+    MOVLW b'00010001'
     MOVWF ADCON0
     
-    MOVLW b'00001001' ; AN0 to AN5 are Analog
+    ; (Page 267 / 271)
+    ; Enable AD Interrupts / ADCON1
+    MOVLW B'00001010'
     MOVWF ADCON1
-    
-    MOVLW b'10000000'
+
+    ; Left side bit
+    MOVLW b'00000000'
     MOVWF ADCON2
     
-    ; Interrupts of A/D
-    BCF PIR1, ADIF ; Clear the interrupt bit
-    BSF PIE1, ADIE ; Enable the A/D interrupt 
-    BSF INTCON, GIE/GIEH ; Global Interrupt Enable bit
+    ; Intterupts Enables
+    BSF PIE1, ADIE
+    BSF INTCON, PEIE
+    BSF INTCON, GIE
     
-    BSF TRISA, TRISA5 ; A5 as an Input for the AD interrupt
-    
-    CLRF PORTB ; Clearing port B
-    CLRF TRISB ; Setting port B as the output of the A/D Result
-    
+    ; ADIF interrupt flag
     GOTO MAIN
-
-; High Priority Interrupt Handle
+    
 IRQ_HANDLE
-    BTFSC PIR1, ADIF ; A/D Interrupt is completed ?
-    GOTO AD_RESULT ; Yes
+    BTFSC PIR1, ADIF
+    GOTO AD_CONVERSION ; Yes
     RETFIE ; No
-
-; Low Priority Interrupt Handle
-AD_RESULT
-    BCF PIR1, ADIF ; Clearing the interrupt bit
-    MOVFF ADRESH, PORTB ; Putting the result on the port B (LEDS)
-    RETFIE
-
-; Delay function that use the global variable COUNT
+    
+    ; Delay function that use the global variable COUNT
 DELAY
     DECFSZ COUNT
     GOTO DELAY
@@ -74,6 +66,12 @@ RESET_COUNT_DELAY
     SETF COUNT, b'00000111'
     RETURN
 
+AD_CONVERSION
+    BCF PIR1, ADIF ; Init
+    ; Start the conversion here ..
+    MOVFF ADRESH, PORTC
+    RETFIE
+    
 ; Draw on the 7 segments
 DISPLAY
     MOVLW VARLCD1
@@ -105,5 +103,4 @@ MAIN
     BSF ADCON0, GO/DONE
     CALL DISPLAY
     GOTO MAIN
-
-END
+    END
