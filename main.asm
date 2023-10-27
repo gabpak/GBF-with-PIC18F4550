@@ -27,21 +27,38 @@ INIT
     CLRF PORTD ; Cleaning the 7 Segments port D
     CLRF TRISD ; Define port D as an Output for the 7 Segments
     CLRF PORTA ; Cleaning the 7-segments/transistors port A
-    CLRF TRISA ; Define port A as an Output for the 7-segments/transistor
+    CLRF TRISA ; Define port A as an Output for the 7-segments/transistor AND for AN5 for the lecture of A/D Convertor
     
     ; **** A/D Module ****
-    MOVLW b'00010101' ; RA5 Port .3
-    
+    MOVLW b'00010101' ; AN5 is the input Port 3
     MOVWF ADCON0
+    
+    MOVLW b'00001001' ; AN0 to AN5 are Analog
+    MOVWF ADCON1
+    
+    MOVLW b'00000000'
+    MOVWF ADCON2
+    
+    ; Interrupts of A/D
+    BCF PIR1, ADIF ; Clear the interrupt bit
+    BSF PIE1, ADIE ; Enable the A/D interrupt 
+    BSF INTCON, GIE/GIEH
+    BSF TRISA, TRISA5 ; A5 as an Input for the AD interrupt
+    CLRF PORTB ; Clearing port B
+    CLRF TRISB ; Setting port B as the output of the A/D Result
     
     GOTO MAIN
 
 ; High Priority Interrupt Handle
 IRQ_HANDLE
-    RETFIE
+    BTFSC PIR1, ADIF ; A/D Interrupt is completed ?
+    GOTO AD_RESULT ; Yes
+    RETFIE ; No
 
 ; Low Priority Interrupt Handle
 AD_RESULT
+    BCF PIR1, ADIF ; Clearing the interrupt bit
+    MOVFF ADRESH, PORTB ; Putting the result on the port B (LEDS)
     RETFIE
 
 ; Delay function that use the global variable COUNT
