@@ -14,9 +14,13 @@ VARLCD8	equ b'1111111'
 VARLCD9	equ b'1101111'
 	
 ; MEMORY EMPLACEMENT
-MODULO_ENTRY equ 0x009A ; The result of the modulo operation (Function MODULO_10_OF_W)
-MODULO_RESULT equ 0x009B
+TEMP		equ 0x01
+		
+MODULO_ENTRY	equ 0x02 ; The result of the modulo operation (Function MODULO_10_OF_W)
+MODULO_RESULT	equ 0x03 ; The result of the modulo
 
+
+	
 ORG 0x0000
     GOTO INIT
 ORG 0x0008
@@ -114,22 +118,24 @@ DISPLAY
     CALL DELAY
     RETURN
 
-    
 MODULO_10
-    ;SUBLW 0x0A ; W - k => W
-    CLRF MODULO_RESULT ; Réinitialiser TEMP à zéro
+    CLRF MODULO_RESULT ; Init Result
+    MOVFF MODULO_ENTRY, TEMP ; TEMP will remplace MODULO_ENTRY because we need it after
     LOOP
-    MOVLW 0x0A ; Charger la valeur 10 dans WREG
-    SUBWF MODULO_ENTRY, W ; Soustraire TO_MODULO de WREG et stocker le résultat dans WREG
-    BTFSC STATUS, N ; Vérifier si le résultat est négatif
-    RETURN ; Sortir de la boucle si le résultat est négatif
-    INCF MODULO_RESULT, F ; Incrémenter TEMP de 1
-    MOVF WREG, W ; Charger le résultat de la soustraction dans WREG
-    MOVWF MODULO_ENTRY ; Stocker le résultat dans TO_MODULO
+    MOVLW 0x0A ; We load 10 to perform the modulo 10
+    SUBWF TEMP, W ; WREG - TEMP => WREG
+    BTFSC STATUS, N ; Negatif ?
+    GOTO EXIT_MODULO ; Yes
+    INCF MODULO_RESULT, F ; No
+    MOVWF TEMP ; WREG => TEMP for the new calculus in the next iteration
     GOTO LOOP
+    
+EXIT_MODULO
+    ; TODO
+    GOTO MAIN
 
 MAIN
-    MOVLW 0x47 ; Charger la valeur 0x1A (26) dans WREG
+    MOVLW 0x32 ; Charger la valeur 0x1A (26) dans WREG
     MOVWF MODULO_ENTRY ; Stocker la valeur dans TO_MODULO
     CALL MODULO_10 ; Appeler la fonction MODULO_10
     GOTO MAIN
