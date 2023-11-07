@@ -14,12 +14,14 @@ VARLCD8	equ b'1111111'
 VARLCD9	equ b'1101111'
 	
 ; MEMORY EMPLACEMENT
-TEMP		equ 0x01
+REGA	equ 0x01
+REGB	equ 0x02
+REGC	equ 0x03
 		
-DIVISION_NUMERATOR	equ 0x02 ; The numerator of the division
-DIVISION_DENOMINATOR	equ 0x03 ; The denominator of the division
-DIVISION_RESULT		equ 0x04 ; The result of the division
-DIVISION_MODULO		equ 0x05 ; The rest of the euclidian division
+DIVISION_NUMERATOR	equ 0x0A ; The numerator of the division
+DIVISION_DENOMINATOR	equ 0x0B ; The denominator of the division
+DIVISION_RESULT		equ 0x0C ; The result of the division
+DIVISION_MODULO		equ 0x0D ; The rest of the euclidian division
 		
 		
 ORG 0x0000
@@ -60,7 +62,10 @@ INIT
     BSF INTCON, GIE
     
     ; RESET GLOBAL VARIABLES
-    CLRF TEMP
+    CLRF REGA
+    CLRF REGB
+    CLRF REGC
+    
     CLRF DIVISION_NUMERATOR
     CLRF DIVISION_DENOMINATOR
     CLRF DIVISION_RESULT
@@ -124,22 +129,37 @@ DISPLAY
 
 DIVISION
     CLRF DIVISION_RESULT ; Init Result
-    MOVFF DIVISION_NUMERATOR, TEMP ; TEMP will remplace DIVISION_NUMERATOR because we need it after
-    LOOP
-    ;MOVLW 0x0A
+    MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
+    DIVISION_LOOP
     MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
-    SUBWF TEMP, W ; WREG - TEMP => WREG
-    BTFSC STATUS, N ; Negatif ?
-    RETURN
+    SUBWF REGA, W ; WREG - REGA => WREG
+    BTFSC STATUS, N ; Negatif ? Skip if Clear
+    RETURN ; Yes
     INCF DIVISION_RESULT, F ; No
-    MOVWF TEMP ; WREG => TEMP for the new calculus in the next iteration
-    GOTO LOOP
+    MOVWF REGA ; WREG => REGA for the new calculus in the next iteration
+    GOTO DIVISION_LOOP
+    
+MODULO
+    ; REGA = DIVISION_RESULT
+    ; MODUL_LOOP
+    ; If REGA = 0
+	; MODULO_RESULT = DIVISION_NUMERATEUR
+	; GOTO CALCUL_REST 
+    ; REGB += DIVISION_DENOMINATEUR
+    ; REGA -- 
+    ; GOTO MODULO
+    ; CALCUL_REST
+    ; MODULO_RESULT = DIVISION_NUMERATEUR - REGB
+    ; RETURN  
+    
+    RETURN
 
 MAIN
-    MOVLW 0x2F ; 23
+    MOVLW 0x2F ; 47
     MOVWF DIVISION_NUMERATOR
     MOVLW 0x07 ; 10
     MOVWF DIVISION_DENOMINATOR
-    CALL DIVISION ; 23 / 10 => WREG
+    CALL DIVISION ; 23 / 10 => DIVISION_RESULT
+    CALL MODULO ; 3 => MODULO_RESULT
     GOTO MAIN
     END
