@@ -164,6 +164,7 @@ DIVISION
     ; Check here the Num > Den
     ; CPFSGT Compare F with WREG / Skip if F > W
     CHECK_NUM_DEN
+    
     MOVFF DIVISION_DENOMINATOR, WREG ; DENOMINATOR => W
     CPFSGT REGA ; REGA > WREG ? / NUMERATOR > DENOMINATOR ?
     GOTO FINISH ; No
@@ -176,7 +177,7 @@ DIVISION
     DIVISION_LOOP
     MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
     SUBWF REGA, W ; WREG - REGA => WREG
-    BTFSC STATUS, N ; Negatif ? Skip if Clear
+    BTFSC STATUS, N ; Negatif ? Skip if Clear // PROBLEM HERE
     RETURN ; Yes
     INCF DIVISION_RESULT, F ; No
     MOVWF REGA ; WREG => REGA for the new calculus in the next iteration
@@ -218,9 +219,9 @@ MODULO
     RETURN
 
 MAIN
-    MOVLW 0x03E8 ; 1000
+    MOVLW 0xFE ; 1000
     MOVWF DIVISION_NUMERATOR
-    MOVLW 0x012C ; 300
+    MOVLW 0x7B ; 300
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION ; 3
     CALL MODULO ;  100
