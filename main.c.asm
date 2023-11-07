@@ -155,7 +155,23 @@ DIVISION
     CLRF DIVISION_RESULT ; Init Result
     MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
     ; Check here the 0 division ...
+    MOVLW 0x00
+    CPFSEQ DIVISION_DENOMINATOR ; Skip if F = W
+    GOTO CHECK_NUM_DEN ; F != W
+    MOVLW 0x00 ; To modify as an error
+    MOVWF DIVISION_RESULT ; F = W
+    RETURN
     ; Check here the Num > Den
+    ; CPFSGT Compare F with WREG / Skip if F > W
+    CHECK_NUM_DEN
+    MOVFF DIVISION_DENOMINATOR, WREG ; DENOMINATOR => W
+    CPFSGT REGA ; REGA > WREG ? / NUMERATOR > DENOMINATOR ?
+    GOTO FINISH ; No
+    GOTO DIVISION_LOOP ; Yes
+    FINISH
+    MOVLW 0x00; No - The NUMERATOR < DENOMINATOR
+    MOVWF DIVISION_RESULT
+    RETURN
     
     DIVISION_LOOP
     MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
@@ -194,7 +210,7 @@ MODULO
     MOVLW 0x00
     CPFSEQ REGA ; Compare with 0x00
     GOTO NOT_ZERO; Not 0
-    ; Now we make the difference between the difference
+    ; Now we make the difference between REGB & NUMERATOR
     MOVFF REGB, WREG ; We place REGB Accu inside WREG => W
     MOVFF DIVISION_NUMERATOR, REGA ; DIVISION_NUMERATOR => REGA
     SUBWF REGA ; REGA - W = DIVISION_NUMERATOR - REGB => REGA
@@ -202,11 +218,11 @@ MODULO
     RETURN
 
 MAIN
-    MOVLW 0x0A ; 47
+    MOVLW 0x03E8 ; 1000
     MOVWF DIVISION_NUMERATOR
-    MOVLW 0x0A ; 10
+    MOVLW 0x012C ; 300
     MOVWF DIVISION_DENOMINATOR
-    CALL DIVISION ; 23 / 10 => DIVISION_RESULT
-    CALL MODULO ; 3 => MODULO_RESULT
+    CALL DIVISION ; 3
+    CALL MODULO ;  100
     GOTO MAIN
     END
