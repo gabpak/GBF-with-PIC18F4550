@@ -69,12 +69,11 @@ INIT
     CLRF DIVISION_NUMERATOR
     CLRF DIVISION_DENOMINATOR
     CLRF DIVISION_RESULT
+    CLRF DIVISION_MODULO
   
 
     GOTO MAIN
 
-    
-    
     ; ______________________________________________________________________
     
     
@@ -82,6 +81,12 @@ IRQ_HANDLE
     BTFSC PIR1, ADIF ; ADIF interrupt flag for A/D Converter
     GOTO AD_CONVERSION ; Yes
     RETFIE ; No
+ 
+AD_CONVERSION
+    BCF PIR1, ADIF ; Init back ADIF to 0x00
+    MOVFF ADRESH, PORTB ; Start the conversion here ..
+    MOVF ADRESH, W ; Put the result inside the W for the display
+    RETFIE
 
     ; Delay function that use the global variable COUNT
 DELAY
@@ -93,12 +98,6 @@ DELAY
 RESET_COUNT_DELAY
     SETF COUNT, b'00000111'
     RETURN
-
-AD_CONVERSION
-    BCF PIR1, ADIF ; Init back ADIF to 0x00
-    MOVFF ADRESH, PORTB ; Start the conversion here ..
-    MOVF ADRESH, W ; Put the result inside the W for the display
-    RETFIE
 
 ; Draw on the 7 segments
 DISPLAY
@@ -141,17 +140,43 @@ DIVISION
     
 MODULO
     ; REGA = DIVISION_RESULT
-    ; MODUL_LOOP
+    ; MODULO_LOOP
     ; If REGA = 0
 	; MODULO_RESULT = DIVISION_NUMERATEUR
 	; GOTO CALCUL_REST 
     ; REGB += DIVISION_DENOMINATEUR
     ; REGA -- 
-    ; GOTO MODULO
+    ; GOTO MODULO_LOOP
     ; CALCUL_REST
     ; MODULO_RESULT = DIVISION_NUMERATEUR - REGB
-    ; RETURN  
+    ; RETURN
     
+    MOVFF DIVISION_RESULT, REGA ; We move DIVISION_RESULT to REGA
+    MODULO_LOOP
+    MOVLW 0x00
+    ;MOVWF REGA ; Just for test
+    CPFSEQ REGA ; Compare REGA with 0x00
+    GOTO NOT_ZERO; Condition is Not 0
+    MOVFF DIVISION_NUMERATOR, DIVISION_MODULO ; Condition is 0
+    RETURN
+    NOT_ZERO
+    MOVFF DIVISION_DENOMINATOR, WREG
+    ADDWF REGB ;  REGB++ => REGB
+    DECF REGA
+    MOVLW 0x00
+    CPFSEQ REGA ; Compare with 0x00
+    GOTO NOT_ZERO; Not 0
+    ; 0
+
+    ; SUBWF => F - W => Dest
+    ; F = NUMERATEUR
+    ; W = REGB
+    ; MOVFF
+    
+    MOVFF REGB, WREG ; We place REGB Accu inside WREG => W
+    MOVFF DIVISION_NUMERATOR, REGA ; DIVISION_NUMERATOR => REGA
+    SUBWF REGA ; REGA - W = DIVISION_NUMERATOR - REGB => REGA
+    MOVFF REGA, DIVISION_MODULO
     RETURN
 
 MAIN
