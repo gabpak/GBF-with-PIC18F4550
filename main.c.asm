@@ -1,7 +1,7 @@
 #include <p18F4550.inc>
 
 ;Constant variable
-COUNT	equ b'0000111'
+COUNT_TIMER equ 0x0A
 VARLCD0	equ b'0111111'
 VARLCD1	equ b'0000110'
 VARLCD2	equ b'1011011'
@@ -17,6 +17,8 @@ VARLCD9	equ b'1101111'
 REGA	equ 0x01
 REGB	equ 0x02
 REGC	equ 0x03
+	
+COUNT	equ 0x08
 		
 DIVISION_NUMERATOR	equ 0x0A ; The numerator of the division
 DIVISION_DENOMINATOR	equ 0x0B ; The denominator of the division
@@ -27,7 +29,6 @@ NUMBER_7_SEGMENTS	equ 0x10 ; The number to display on the 7-segments
 	
 ADRESSH_TO_DECREMENT	equ 0x20 ; The variable to decrement for the rectangular signal
 RECTANGLE_HIGH		equ 0x21	
-		
 		
 ORG 0x0000
     GOTO INIT
@@ -78,6 +79,9 @@ INIT
     
     CLRF ADRESSH_TO_DECREMENT
     CLRF RECTANGLE_HIGH
+    
+    MOVLW COUNT_TIMER
+    MOVWF COUNT
   
     GOTO MAIN
 
@@ -102,7 +106,8 @@ DELAY
     RETURN
 ; Reset the global COUNT variable (used in delay function)
 RESET_COUNT_DELAY
-    SETF COUNT, b'00000111'
+    MOVLW COUNT_TIMER
+    MOVWF COUNT
     RETURN
 
 ; Draw on the 7 segments
@@ -235,24 +240,29 @@ RECTANGULAR_SIGNAL
     MOVFF ADRESH, ADRESSH_TO_DECREMENT
     START_DECR
     DECF ADRESSH_TO_DECREMENT
-    MOVF 0x00 ; We move 0x00 to WREG
+    MOVLW 0x00 ; We move 0x00 to WREG
     CPFSEQ ADRESSH_TO_DECREMENT ; Skip if W = F
     GOTO START_DECR; F != W
-    MOVF 0x00 ; F = W
+    MOVLW 0x00 ; F = W
     CPFSEQ RECTANGLE_HIGH
     GOTO PUT_LOW; On met à l'état bas ici
-    MOVLW 0x01; On met à l'état haut ici
-    MOVWF RECTANGLE_HIGH
     GOTO TERMINATE
     PUT_LOW
-    MOVLW 0x00
     BCF PORTE, RE0
+    MOVLW 0x00; On met à l'état haut ici
+    MOVWF RECTANGLE_HIGH
+    CALL DELAY
+    RETURN
     TERMINATE
     BSF PORTE, RE0
+    MOVLW 0x01; On met à l'état haut ici
+    MOVWF RECTANGLE_HIGH
+    CALL DELAY
     RETURN
 
 MAIN
     BSF ADCON0, GO/DONE
+
     CALL RECTANGULAR_SIGNAL
     
     ;MOVLW 0x34 ; 51
