@@ -83,7 +83,7 @@ INIT
     MOVLW COUNT_TIMER
     MOVWF COUNT
   
-    GOTO MAIN
+    GOTO INIT_PWM
 
     ; ______________________________________________________________________
     
@@ -91,11 +91,17 @@ INIT
 IRQ_HANDLE
     BTFSC PIR1, ADIF ; ADIF interrupt flag for A/D Converter
     GOTO AD_CONVERSION ; Yes
+    BTFSC PIR1, TMR2IF
+    GOTO TMR2_IF
     RETFIE ; No
  
 AD_CONVERSION
     BCF PIR1, ADIF ; Init back ADIF to 0x00
     MOVFF ADRESH, PORTB ; Start the conversion here ..
+    RETFIE
+    
+TMR2_IF ; Flag TMR2IF Raised
+    BCF PIR1, TMR2IF
     RETFIE
 
     ; Delay function that use the global variable COUNT
@@ -260,19 +266,33 @@ RECTANGULAR_SIGNAL
     CALL DELAY
     RETURN
 
-MAIN
-    BSF ADCON0, GO/DONE
-
-    CALL RECTANGULAR_SIGNAL
+INIT_PWM
+    ; C as an output
+    BCF TRISC, TRISC2
+    CLRF PORTC
     
-    ;MOVLW 0x34 ; 51
-    ;MOVWF DIVISION_NUMERATOR
-    ;MOVLW 0x03 ; 3
-    ;MOVWF DIVISION_DENOMINATOR
-    ;CALL DIVISION ; 16
-    ;CALL MODULO ;  2
+    ; Interrupts
+    BSF PIE1, TMR2IE
+    BSF IPR1, TMR2IP ; High Priority
     
-    CALL _DISPLAY
-
+    MOVLW 0x7C
+    MOVWF PR2 ; Period
+    MOVLW b'00101000'
+    MOVWF CCPR1L ; Duty cycle
+    
+    MOVLW b'00000010'
+    MOVWF T2CON ; Prescale à 16
+    MOVLW b'00101100'
+    MOVWF CCP1CON ; PWM mode and PWM Duty cycle 2 LSB at 10
+    
+    BSF T2CON, TMR2ON
+    
     GOTO MAIN
+
+    
+MAIN
+    ;BSF ADCON0, GO/DONE
+    ;CALL RECTANGULAR_SIGNAL
+    
+_   GOTO MAIN
     END
