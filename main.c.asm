@@ -26,9 +26,6 @@ DIVISION_RESULT		equ 0x0C ; The result of the division
 DIVISION_MODULO		equ 0x0D ; The rest of the euclidian division
 	
 NUMBER_7_SEGMENTS	equ 0x10 ; The number to display on the 7-segments
-	
-ADRESSH_TO_DECREMENT	equ 0x20 ; The variable to decrement for the rectangular signal
-RECTANGLE_HIGH		equ 0x21	
 		
 ORG 0x0000
     GOTO INIT
@@ -43,10 +40,10 @@ INIT
     CLRF TRISB
     CLRF PORTB ; Affichage du resultat A/D sur le port C
 
-    CLRF TRISD ; Utilisé pour l'affichage du 7 segment
+    CLRF TRISD ; Utilis? pour l'affichage du 7 segment
     CLRF PORTD  
     
-    CLRF TRISE ; Utilisé pour le signal rectangle
+    CLRF TRISE ; Utilis? pour le signal rectangle
     CLRF PORTE
 
     ; Configuration of the AD Interrupts / ADCON0
@@ -77,22 +74,41 @@ INIT
     CLRF DIVISION_RESULT
     CLRF DIVISION_MODULO
     
-    CLRF ADRESSH_TO_DECREMENT
-    CLRF RECTANGLE_HIGH
-    
     MOVLW COUNT_TIMER
     MOVWF COUNT
   
     GOTO INIT_PWM
 
+INIT_PWM
+    ; C as an output
+    BCF TRISC, TRISC2
+    CLRF PORTC
+    
+    ; Interrupts
+    BSF PIE1, TMR2IE
+    BSF IPR1, TMR2IP ; High Priority
+    
+    MOVLW 0x7C
+    MOVWF PR2 ; Period
+    MOVLW b'00101000'
+    MOVWF CCPR1L ; Duty cycle
+    
+    MOVLW b'00000010'
+    MOVWF T2CON ; Prescale ? 16
+    MOVLW b'00101100'
+    MOVWF CCP1CON ; PWM mode and PWM Duty cycle 2 LSB at 10
+    
+    BSF T2CON, TMR2ON
+    
+    GOTO MAIN
     ; ______________________________________________________________________
     
     
 IRQ_HANDLE
     BTFSC PIR1, ADIF ; ADIF interrupt flag for A/D Converter
     GOTO AD_CONVERSION ; Yes
-    BTFSC PIR1, TMR2IF
-    GOTO TMR2_IF
+    BTFSC PIR1, TMR2IF ; PWM Intterupt
+    GOTO TMR2_IF ; Yes
     RETFIE ; No
  
 AD_CONVERSION
@@ -115,32 +131,68 @@ RESET_COUNT_DELAY
     MOVLW COUNT_TIMER
     MOVWF COUNT
     RETURN
-
-; Draw on the 7 segments
-_DISPLAY
-    MOVLW VARLCD1
-    MOVWF PORTD
-    BSF PORTA, RA3
-
-    CALL DELAY
-
-    MOVLW VARLCD9
-    MOVWF PORTD
-    BSF PORTA, RA2
-
-    CALL DELAY
-
-    MOVLW VARLCD9
-    MOVWF PORTD
-    BSF PORTA, RA1
-
-    CALL DELAY
-
-    MOVLW VARLCD9
-    MOVWF PORTD
-    BSF PORTA, RA0
-
-    CALL DELAY
+    
+DISPLAY_DECODER
+    ; ZERO
+    MOVLW 0x00
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO ONE; NO
+    MOVLW VARLCD0 ; YES
+    RETURN
+    ONE
+    MOVLW 0x01
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO TWO; NO
+    MOVLW VARLCD1 ; YES
+    RETURN
+    TWO
+    MOVLW 0x02
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO THREE; NO
+    MOVLW VARLCD2 ; YES
+    RETURN
+    THREE
+    MOVLW 0x03
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO FOURTH; NO
+    MOVLW VARLCD3 ; YES
+    RETURN
+    FOURTH
+    MOVLW 0x04
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO FIVE; NO
+    MOVLW VARLCD4 ; YES
+    RETURN
+    FIVE
+    MOVLW 0x05
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO TWO; NO
+    MOVLW VARLCD5 ; YES
+    RETURN
+    SIX
+    MOVLW 0x06
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO SEVEN; NO
+    MOVLW VARLCD6 ; YES
+    RETURN
+    SEVEN
+    MOVLW 0x07
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO HEIGHT; NO
+    MOVLW VARLCD7 ; YES
+    RETURN
+    HEIGHT
+    MOVLW 0x08
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO NEINE; NO
+    MOVLW VARLCD8 ; YES
+    RETURN
+    NEINE
+    MOVLW 0x09
+    CPFSEQ DIVISION_MODULO ; SKIP if f = W
+    GOTO ENDING; NO
+    MOVLW VARLCD9 ; YES
+    ENDING
     RETURN
     
 DISPLAY
@@ -148,10 +200,30 @@ DISPLAY
     ; DISPLAY 7
     ; RA0
     
+    MOVFF NUMBER_7_SEGMENTS, DIVISION_NUMERATOR
+    MOVLW 0x0A ; 10
+    MOVWF DIVISION_DENOMINATOR
+    CALL DIVISION
+    CALL DISPLAY_DECODER
+    MOVWF PORTD
+    BSF PORTA, RA0
+    
+    CALL DELAY
+    
     ; Result = (987 - 7) / 10 = 98
     ; 98 % 10 = 8
     ; DISPLAY 8
     ; RA1
+    
+    
+    BSF PORTA, RA1
+    CALL DELAY
+    
+    BSF PORTA, RA2
+    CALL DELAY
+    
+    BSF PORTA, RA3
+    CALL DELAY
     
     ; Result = (98 - 8) % 10 = 9
     ; 9 % 10 = 9
@@ -163,136 +235,87 @@ DISPLAY
     ; DISPLAY 0
     ; RA3
     
+    ;MOVLW VARLCD1
+    ;MOVWF PORTD
+    ;BSF PORTA, RA3
+
+    ;CALL DELAY
     
+    RETURN
+    
+    
+_DISPLAY
+    MOVLW VARLCD3
+    MOVWF PORTD
+    BSF PORTA, RA2
+    CALL DELAY
     RETURN
 
 DIVISION
     CLRF DIVISION_RESULT ; Init Result
     MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
-    ; Check here the 0 division ...
-    MOVLW 0x00
-    CPFSEQ DIVISION_DENOMINATOR ; Skip if F = W
-    GOTO CHECK_NUM_DEN ; F != W
-    MOVLW 0x00 ; To modify as an error
-    MOVWF DIVISION_RESULT ; F = W
-    RETURN
-    
-    ; Check here the Num > Den
-    ; CPFSGT Compare F with WREG / Skip if F > W
-    CHECK_NUM_DEN
-    MOVFF DIVISION_DENOMINATOR, WREG ; DENOMINATOR => W
-    CPFSGT REGA ; REGA > WREG ? / NUMERATOR > DENOMINATOR ?
-    GOTO FINISH ; No
-    GOTO DIVISION_LOOP ; Yes
-    FINISH
-    MOVLW 0x00; No - The NUMERATOR < DENOMINATOR
-    MOVWF DIVISION_RESULT
-    RETURN
-    
     DIVISION_LOOP
     MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
-    SUBWF REGA, W ; f - w => WREG / WREG - REGA => WREG
-    BTFSC STATUS, N ; Negatif ? Skip if Clear // PROBLEM HERE 
-    RETURN ; Yes
+    SUBWF REGA, W ; f - w => WREG
+    BTFSC STATUS, OV ; Negatif ? Skip if Clear
+    GOTO MODULO ; Yes
     INCF DIVISION_RESULT, F ; No
     MOVWF REGA ; WREG => REGA for the new calculus in the next iteration
     GOTO DIVISION_LOOP
-   
-MODULO
-    ; REGA = DIVISION_RESULT
-    ; MODULO_LOOP
-    ; If REGA = 0
-	; MODULO_RESULT = DIVISION_NUMERATEUR
-	; GOTO CALCUL_REST 
-    ; REGB += DIVISION_DENOMINATEUR
-    ; REGA -- 
-    ; GOTO MODULO_LOOP
-    ; CALCUL_REST
-    ; MODULO_RESULT = DIVISION_NUMERATEUR - REGB
-    ; RETURN
-    
-    MOVFF DIVISION_RESULT, REGA ; We move DIVISION_RESULT to REGA
-    MODULO_LOOP
-    MOVLW 0x00
-    ;MOVWF REGA ; Just for test
-    CPFSEQ REGA ; Compare REGA with 0x00
-    GOTO NOT_ZERO; Condition is Not 0
-    MOVFF DIVISION_NUMERATOR, DIVISION_MODULO ; Condition is 0
-    RETURN
-    NOT_ZERO
-    MOVFF DIVISION_DENOMINATOR, WREG
-    ADDWF REGB ;  REGB++ => REGB
-    DECF REGA
-    MOVLW 0x00
-    CPFSEQ REGA ; Compare with 0x00
-    GOTO NOT_ZERO; Not 0
-    ; Now we make the difference between REGB & NUMERATOR
-    MOVFF REGB, WREG ; We place REGB Accu inside WREG => W
-    MOVFF DIVISION_NUMERATOR, REGA ; DIVISION_NUMERATOR => REGA
-    SUBWF REGA ; REGA - W = DIVISION_NUMERATOR - REGB => REGA
+    MODULO
     MOVFF REGA, DIVISION_MODULO
     RETURN
-    
-RECTANGULAR_SIGNAL
-    ; On recupère le signal de ADRESH => WREG
-    ; BEGIN
-    ; On DECF la valeur de WREG
-    ; Si 0 => Changement d'état du signal
-    ; GOTO BEGIN
-    ; Changer l'état du signal
-    ; Si 1 = 0
-    ; Si 0 = 1
-    ; RETURN
-    MOVFF ADRESH, ADRESSH_TO_DECREMENT
-    START_DECR
-    DECF ADRESSH_TO_DECREMENT
-    MOVLW 0x00 ; We move 0x00 to WREG
-    CPFSEQ ADRESSH_TO_DECREMENT ; Skip if W = F
-    GOTO START_DECR; F != W
-    MOVLW 0x00 ; F = W
-    CPFSEQ RECTANGLE_HIGH
-    GOTO PUT_LOW; On met à l'état bas ici
-    GOTO TERMINATE
-    PUT_LOW
-    BCF PORTE, RE0
-    MOVLW 0x00; On met à l'état haut ici
-    MOVWF RECTANGLE_HIGH
-    CALL DELAY
-    RETURN
-    TERMINATE
+
+_YES
     BSF PORTE, RE0
-    MOVLW 0x01; On met à l'état haut ici
-    MOVWF RECTANGLE_HIGH
-    CALL DELAY
-    RETURN
-
-INIT_PWM
-    ; C as an output
-    BCF TRISC, TRISC2
-    CLRF PORTC
-    
-    ; Interrupts
-    BSF PIE1, TMR2IE
-    BSF IPR1, TMR2IP ; High Priority
-    
-    MOVLW 0x7C
-    MOVWF PR2 ; Period
-    MOVLW b'00101000'
-    MOVWF CCPR1L ; Duty cycle
-    
-    MOVLW b'00000010'
-    MOVWF T2CON ; Prescale à 16
-    MOVLW b'00101100'
-    MOVWF CCP1CON ; PWM mode and PWM Duty cycle 2 LSB at 10
-    
-    BSF T2CON, TMR2ON
-    
     GOTO MAIN
-
     
 MAIN
-    ;BSF ADCON0, GO/DONE
-    ;CALL RECTANGULAR_SIGNAL
     
-_   GOTO MAIN
+    ;MOVLW 0x87
+    ;MOVWF DIVISION_NUMERATOR
+    ;MOVLW 0x0A
+    ;MOVWF DIVISION_DENOMINATOR
+    ;CALL DIVISION
+    
+    MOVLW 0x89 ;(140)
+    MOVWF REGA
+    MOVLW 0x0A
+    BCF STATUS, N
+    SUBWF REGA, W ; f - w => WREG / 0x64 - 0x0A = 0x90
+    BTFSC STATUS, N ; Negatif ? Skip if Clear
+    GOTO _YES ; Negatif
+    BSF PORTE, RE1 ; Positif
+    GOTO MAIN
+    
+    
+   ;MOVLW 0x18
+   ;MOVWF NUMBER_7_SEGMENTS
+    
+   ;CALL DISPLAY
+    
+    ;MOVLW 0x8A ; 1000
+    ;MOVWF DIVISION_NUMERATOR
+    ;MOVLW 0x0A ; 300
+    ;MOVWF DIVISION_DENOMINATOR
+    ;CALL DIVISION
+    
+    
+    GOTO MAIN
     END
+
+; 100 / 10 = 0x0A => STATUS = 0x10
+; 110 / 10 = 0x0B => STATUS = 0x10
+; 120 / 10 = 0x0C => STATUS = 0x10 
+; 125 / 10 = 0x0C => STATUS = 0x10
+; 127 / 10 = 0x0C => STATUS = 0x10
+; 128 / 10 = 0x0C => STATUS = 0x10
+; 129 / 10 = 0x0C => STATUS = 0x10
+; 130 / 10 = 0x0D => STATUS = 0x10
+; 131 / 10 = 0x0D => STATUS = 0x10
+; 135 (0x87) / 10 = 0x0D => STATUS = 0x10
+; 136 (0x88) OK
+; 137 (0x89) OK   
+; 138(0x8A) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+; 139 / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+; 140 / 10 = 0x00 => STATUS = 0x13D (NOT OK)
