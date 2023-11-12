@@ -20,6 +20,7 @@ VARLCD6	equ b'1111101'
 VARLCD7	equ b'0000111'
 VARLCD8	equ b'1111111'
 VARLCD9	equ b'1101111'
+VARLCDE equ b'1000000' ; Error
 	
 ; MEMORY EMPLACEMENT
 REGA	equ 0x01
@@ -135,8 +136,8 @@ TMR2_IF ; Flag TMR2IF Raised
     BCF PIR1, TMR2IF
     RETFIE
 
-    ; Delay function that use the global variable COUNT
-DELAY
+
+DELAY    ; Delay function that use the global variable COUNT
     DECFSZ COUNT
     GOTO DELAY
     CALL RESET_COUNT_DELAY_1
@@ -155,8 +156,6 @@ RESET_COUNT_DELAY_2
     MOVLW COUNT_TIMER
     MOVWF COUNT
     RETURN
-    
-    
     
 DISPLAY_DECODER
     ; ZERO
@@ -219,48 +218,46 @@ DISPLAY_DECODER
     GOTO ENDING; NO
     MOVLW VARLCD9 ; YES
     ENDING
+    MOVLW VARLCDE
     RETURN
     
 DISPLAY
-    ; 123
     MOVFF NUMBER_7_SEGMENTS, REGC
     MOVFF NUMBER_7_SEGMENTS, DIVISION_NUMERATOR
-    MOVLW 0x0A ; 10
+    MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION
     CALL DISPLAY_DECODER
-    MOVWF PORTD  ; Affiche 3
+    MOVWF PORTD
     BSF PORTA, RA0
     
     CALL DELAY
     
     MOVFF DIVISION_MODULO, WREG
-    SUBWF REGC, W ; 123 - 3 = 120
+    SUBWF REGC, W
     MOVWF DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
-    CALL DIVISION ; = 120 / 10 = 12 
+    CALL DIVISION
     ; Je récup le resultat de la division
-    ; je calcul le modulo en refaisant la division
+    ; je calcul le modulo en refaisant la division avec le nouveau résultat
     MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION
     CALL DISPLAY_DECODER
-    MOVWF PORTD   ; Affiche 2
+    MOVWF PORTD
     BSF PORTA, RA1
     
     CALL DELAY
     
-    ; 12 (NUMERATOR) - 2 (MODULO)
     MOVFF DIVISION_MODULO, WREG
     SUBWF DIVISION_NUMERATOR, W
     MOVWF DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
-    ;CALL DIVISION ; 10 / 10 = 1 
     ; Je récup le resultat de la division
-    ; je calcul le modulo en refaisant la division
+    ; je calcul le modulo en refaisant la division avec le nouveau résultat
     MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
@@ -276,39 +273,27 @@ DISPLAY
     MOVWF DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
-    ;CALL DIVISION ; 10 / 10 = 1 
     ; Je récup le resultat de la division
-    ; je calcul le modulo en refaisant la division
+    ; je calcul le modulo en refaisant la division avec le nouveau résultat
     MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION
     CALL DISPLAY_DECODER
-    MOVWF PORTD   ; Affiche 2
+    MOVWF PORTD
     BSF PORTA, RA3
     
-    
-    
-    
-    ; Result = (98 - 8) % 10 = 9
-    ; 9 % 10 = 9
-    ; DISPLAY 9
-    ; RA2
-    
-    ; Result = (9 - 9) / 10
-    ; 0 % 10 = 0
-    ; DISPLAY 0
-    ; RA3
-    
-    ;MOVLW VARLCD1
-    ;MOVWF PORTD
-    ;BSF PORTA, RA3
-
-    ;CALL DELAY
+    CALL DELAY
     
     RETURN
 
 DIVISION
+    ; NUMERATEUR
+    ; 136 (0x88) / 10 = 0x0D => STATUS = 0x10 (OK)
+    ; 137 (0x89) / 10 = 0x0D => STATUS = 0x10 (OK)
+    ; 138 (0x8A) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+    ; 139 (0x8B) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+    ; 140 (0x8C) / 10 = 0x00 => STATUS = 0x13D (NOT OK)
     CLRF DIVISION_RESULT ; Init Result
     MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
     DIVISION_LOOP
@@ -323,27 +308,10 @@ DIVISION
     MOVFF REGA, DIVISION_MODULO
     RETURN
 
+
 MAIN
     BSF ADCON0, GO/DONE
-    
-
-    
     CALL DISPLAY
-    
     GOTO MAIN
     END
-
-; 100 / 10 = 0x0A => STATUS = 0x10
-; 110 / 10 = 0x0B => STATUS = 0x10
-; 120 / 10 = 0x0C => STATUS = 0x10 
-; 125 / 10 = 0x0C => STATUS = 0x10
-; 127 / 10 = 0x0C => STATUS = 0x10
-; 128 / 10 = 0x0C => STATUS = 0x10
-; 129 / 10 = 0x0C => STATUS = 0x10
-; 130 / 10 = 0x0D => STATUS = 0x10
-; 131 / 10 = 0x0D => STATUS = 0x10
-; 135(0x87) / 10 = 0x0D => STATUS = 0x10
     
-; 138(0x88) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-; 139 / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-; 140 / 10 = 0x00 => STATUS = 0x13D (NOT OK)
