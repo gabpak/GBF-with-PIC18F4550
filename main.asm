@@ -35,6 +35,14 @@ DIVISION_RESULT		equ 0x0C ; The result of the division
 DIVISION_MODULO		equ 0x0D ; The rest of the euclidian division
 	
 NUMBER_7_SEGMENTS	equ 0x10 ; The number to display on the 7-segments
+
+; 16 bits memory
+OctetA_L    equ 0x20 ; A: xxxxxxxx 00000000
+OctetA_H    equ 0x21 ; A: 00000000 xxxxxxxx
+OctetB_L    equ 0x22 ; B: xxxxxxxx 00000000 
+OctetB_H    equ 0x23 ; B: 00000000 xxxxxxxx
+OctetC_L    equ 0x24 ; C: xxxxxxxx 00000000
+OctetC_H    equ 0x25 ; C: 00000000 xxxxxxxx
 		
 ORG 0x0000
     GOTO INIT
@@ -78,10 +86,19 @@ INIT
     CLRF REGB
     CLRF REGC
     
+    ; 8 Bit division
     CLRF DIVISION_NUMERATOR
     CLRF DIVISION_DENOMINATOR
     CLRF DIVISION_RESULT
     CLRF DIVISION_MODULO
+    
+    ; 16 Bit register
+    CLRF OctetA_L
+    CLRF OctetA_H
+    CLRF OctetB_L
+    CLRF OctetB_H
+    CLRF OctetC_L
+    CLRF OctetC_H
     
     MOVLW COUNT_TIMER
     MOVWF COUNT
@@ -136,7 +153,6 @@ TMR2_IF ; Flag TMR2IF Raised
     BCF PIR1, TMR2IF
     RETFIE
 
-
 DELAY    ; Delay function that use the global variable COUNT
     DECFSZ COUNT
     GOTO DELAY
@@ -156,6 +172,28 @@ RESET_COUNT_DELAY_2
     MOVLW COUNT_TIMER
     MOVWF COUNT
     RETURN
+    
+DIVISION
+    ; NUMERATEUR
+    ; 136 (0x88) / 10 = 0x0D => STATUS = 0x10 (OK)
+    ; 137 (0x89) / 10 = 0x0D => STATUS = 0x10 (OK)
+    ; 138 (0x8A) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+    ; 139 (0x8B) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
+    ; 140 (0x8C) / 10 = 0x00 => STATUS = 0x13D (NOT OK)
+    CLRF DIVISION_RESULT ; Init Result
+    MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
+    DIVISION_LOOP
+    MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
+    SUBWF REGA, W ; f - w => WREG
+    BTFSC STATUS, N ; Negatif ? Skip if Clear
+    GOTO MODULO ; Yes
+    INCF DIVISION_RESULT, F ; No
+    MOVWF REGA ; WREG => REGA for the new calculus in the next iteration
+    GOTO DIVISION_LOOP
+    MODULO
+    MOVFF REGA, DIVISION_MODULO
+    RETURN
+
     
 DISPLAY_DECODER
     ; ZERO
@@ -287,31 +325,40 @@ DISPLAY
     
     RETURN
 
-DIVISION
-    ; NUMERATEUR
-    ; 136 (0x88) / 10 = 0x0D => STATUS = 0x10 (OK)
-    ; 137 (0x89) / 10 = 0x0D => STATUS = 0x10 (OK)
-    ; 138 (0x8A) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-    ; 139 (0x8B) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-    ; 140 (0x8C) / 10 = 0x00 => STATUS = 0x13D (NOT OK)
-    CLRF DIVISION_RESULT ; Init Result
-    MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
-    DIVISION_LOOP
-    MOVF DIVISION_DENOMINATOR, WREG ; Loading DIVISION_DENOMINATOR inside the WREG
-    SUBWF REGA, W ; f - w => WREG
-    BTFSC STATUS, N ; Negatif ? Skip if Clear
-    GOTO MODULO ; Yes
-    INCF DIVISION_RESULT, F ; No
-    MOVWF REGA ; WREG => REGA for the new calculus in the next iteration
-    GOTO DIVISION_LOOP
-    MODULO
-    MOVFF REGA, DIVISION_MODULO
+; 16 bits substractor
+COMPARE_16BITS ; A - B
+    MOVF OctetB_H, WREG
+    SUBWF OctetA_H, WREG ; F - WREG => WREG
+    BTFSS STATUS, Z ; Si Z = 1 alors SKIP
+    GOTO RESULT; Z = 0
+    MOVF OctetB_L, WREG; Z = 1
+    SUBWF OctetA_L, WREG ; F - W / 
+    RESULT
+	; if A=B then now Z=1.
+	; if B<A then now N=1
+	; if A<=B then now C=1.
     RETURN
-
-
+    
+SUBTRACT_16BITS
+    RETURN
+    
 MAIN
-    BSF ADCON0, GO/DONE
-    CALL DISPLAY
+    
+    MOVLW 0x69
+    MOVWF OctetA_H
+    MOVLW 0x78
+    MOVWF OctetA_L
+    ; 24000
+    
+    MOVLW 0xA4
+    MOVWF OctetB_H
+    MOVLW 0x10
+    MOVWF OctetB_L
+    ; 42000
+    
+    ;BSF ADCON0, GO/DONE
+    ;CALL DISPLAY
+    CALL COMPARE_16BITS
     GOTO MAIN
     END
     
