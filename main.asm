@@ -355,18 +355,23 @@ SUBTRACT_16BITS
     
     RETURN
     
-INCR_16BITS
+; Increment 16 bits value in OctetA
+INCREMENT_16BITS
+    INCF OctetA_L, F ; Increment OctetA_L
+    BTFSS STATUS, Z ; If Z = 1
+    GOTO INCREMENT_DONE ; Z = 1
+    INCF OctetA_H, F ; Z = 0
+    INCREMENT_DONE
     RETURN
     
 MAIN
     
-    MOVLW 0x06
+    MOVLW 0xFE
     MOVWF OctetA_H
-    MOVLW 0xF6
+    MOVLW 0xFF
     MOVWF OctetA_L
     ; 1782 0x06F6
     
-        
     MOVLW 0x03
     MOVWF OctetB_H
     MOVLW 0xD8
@@ -374,7 +379,8 @@ MAIN
     ; 984 0x3D8
     
     ;CALL COMPARE_16BITS
-    CALL SUBTRACT_16BITS
+    ;CALL SUBTRACT_16BITS
+    CALL INCREMENT_16BITS
     
     ;BSF ADCON0, GO/DONE
     ;CALL DISPLAY
