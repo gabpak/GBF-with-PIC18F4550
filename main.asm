@@ -37,13 +37,20 @@ DIVISION_MODULO		equ 0x0D ; The rest of the euclidian division
 NUMBER_7_SEGMENTS	equ 0x10 ; The number to display on the 7-segments
 
 ; 16 bits memory
-OctetA_L    equ 0x20 ; A: xxxxxxxx 00000000
-OctetA_H    equ 0x21 ; A: 00000000 xxxxxxxx
-OctetB_L    equ 0x22 ; B: xxxxxxxx 00000000 
-OctetB_H    equ 0x23 ; B: 00000000 xxxxxxxx
-OctetC_L    equ 0x24 ; C: xxxxxxxx 00000000
-OctetC_H    equ 0x25 ; C: 00000000 xxxxxxxx
-		
+OctetA_H    equ 0x20 ; A: 00000000 xxxxxxxx
+OctetA_L    equ 0x21 ; A: xxxxxxxx 00000000
+    
+OctetB_H    equ 0x22 ; B: 00000000 xxxxxxxx
+OctetB_L    equ 0x23 ; B: xxxxxxxx 00000000 
+    
+OctetC_H    equ 0x24 ; C: 00000000 xxxxxxxx
+OctetC_L    equ 0x25 ; C: xxxxxxxx 00000000
+    
+OctetD_H    equ 0x26 ; D: 00000000 xxxxxxxx
+OctetD_L    equ 0x27 ; D: xxxxxxxx 00000000
+
+; Program START
+    
 ORG 0x0000
     GOTO INIT
 ORG 0x0008
@@ -99,6 +106,8 @@ INIT
     CLRF OctetB_H
     CLRF OctetC_L
     CLRF OctetC_H
+    CLRF OctetD_L
+    CLRF OctetD_H
     
     MOVLW COUNT_TIMER
     MOVWF COUNT
@@ -173,13 +182,8 @@ RESET_COUNT_DELAY_2
     MOVWF COUNT
     RETURN
     
-DIVISION
+DIVISION ; 8bit division (137 is the limit here)
     ; NUMERATEUR
-    ; 136 (0x88) / 10 = 0x0D => STATUS = 0x10 (OK)
-    ; 137 (0x89) / 10 = 0x0D => STATUS = 0x10 (OK)
-    ; 138 (0x8A) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-    ; 139 (0x8B) / 10 = 0x00 => STATUS = 0x13 (NOT OK)
-    ; 140 (0x8C) / 10 = 0x00 => STATUS = 0x13D (NOT OK)
     CLRF DIVISION_RESULT ; Init Result
     MOVFF DIVISION_NUMERATOR, REGA ; REGA will remplace DIVISION_NUMERATOR because we need it after
     DIVISION_LOOP
@@ -325,8 +329,8 @@ DISPLAY
     
     RETURN
 
-; 16 bits substractor
-COMPARE_16BITS ; A - B
+; 16 bits comparator
+COMPARE_16BITS
     MOVF OctetB_H, WREG
     SUBWF OctetA_H, WREG ; F - WREG => WREG
     BTFSS STATUS, Z ; Si Z = 1 alors SKIP
@@ -339,26 +343,43 @@ COMPARE_16BITS ; A - B
 	; if A<=B then now C=1.
     RETURN
     
+; Substract A - B => C
 SUBTRACT_16BITS
+    MOVF OctetB_L, WREG    ; Load 0x62 into WREG        ; Copy WREG (0x62) to RAM location 0x01        ; Load 0x96 into WREG
+    SUBWF OctetA_L , WREG        ; F (loc 0x01) = F - B = 0x62 - 0x96 = 0xCC with C = 0
+    MOVWF OctetC_L
+
+    MOVF OctetB_H, WREG       ; Load 0x62 into WREG        ; Copy WREG (0x62) to RAM location 0x01        ; Load 0x96 into WREG
+    SUBWFB OctetA_H, WREG        ; F (loc 0x01) = F - B = 0x62 - 0x96 = 0xCC with C = 0
+    MOVWF OctetC_H
+    
+    RETURN
+    
+INCR_16BITS
     RETURN
     
 MAIN
     
-    MOVLW 0x69
+    MOVLW 0x06
     MOVWF OctetA_H
-    MOVLW 0x78
+    MOVLW 0xF6
     MOVWF OctetA_L
-    ; 24000
+    ; 1782 0x06F6
     
-    MOVLW 0xA4
+        
+    MOVLW 0x03
     MOVWF OctetB_H
-    MOVLW 0x10
+    MOVLW 0xD8
     MOVWF OctetB_L
-    ; 42000
+    ; 984 0x3D8
+    
+    ;CALL COMPARE_16BITS
+    CALL SUBTRACT_16BITS
     
     ;BSF ADCON0, GO/DONE
     ;CALL DISPLAY
-    CALL COMPARE_16BITS
+    
+    
     GOTO MAIN
     END
     
