@@ -204,42 +204,73 @@ DISPLAY_DECODER
     RETURN
     
 DISPLAY
-    ; 987 % 10 = 7
-    ; DISPLAY 7
-    ; RA0
-    
-    
+    ; 123
     MOVFF NUMBER_7_SEGMENTS, REGC
     MOVFF NUMBER_7_SEGMENTS, DIVISION_NUMERATOR
     MOVLW 0x0A ; 10
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION
     CALL DISPLAY_DECODER
-    MOVWF PORTD
+    MOVWF PORTD  ; Affiche 3
     BSF PORTA, RA0
     
     CALL DELAY
     
-    ; Result = (987 - 7) / 10 = 98
-    ; 98 % 10 = 8
-    
     MOVFF DIVISION_MODULO, WREG
-    SUBWF REGC, W ; SOUSTRACTION
+    SUBWF REGC, W ; 123 - 3 = 120
     MOVWF DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
-    CALL DIVISION 
-    ; Je récup le resultat de la division q = 2 r = 0
-    ; je calcul le modulo en refaisant la division 2 % 10
+    CALL DIVISION ; = 120 / 10 = 12 
+    ; Je récup le resultat de la division
+    ; je calcul le modulo en refaisant la division
     MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
     MOVLW 0x0A
     MOVWF DIVISION_DENOMINATOR
     CALL DIVISION
     CALL DISPLAY_DECODER
-    MOVWF PORTD
+    MOVWF PORTD   ; Affiche 2
     BSF PORTA, RA1
     
     CALL DELAY
+    
+    ; 12 (NUMERATOR) - 2 (MODULO)
+    MOVFF DIVISION_MODULO, WREG
+    SUBWF DIVISION_NUMERATOR, W
+    MOVWF DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    ;CALL DIVISION ; 10 / 10 = 1 
+    ; Je récup le resultat de la division
+    ; je calcul le modulo en refaisant la division
+    MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    CALL DIVISION
+    CALL DISPLAY_DECODER
+    MOVWF PORTD   ; Affiche 2
+    BSF PORTA, RA2
+    
+    CALL DELAY
+    
+    MOVFF DIVISION_MODULO, WREG
+    SUBWF DIVISION_NUMERATOR, W
+    MOVWF DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    ;CALL DIVISION ; 10 / 10 = 1 
+    ; Je récup le resultat de la division
+    ; je calcul le modulo en refaisant la division
+    MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    CALL DIVISION
+    CALL DISPLAY_DECODER
+    MOVWF PORTD   ; Affiche 2
+    BSF PORTA, RA3
+    
+    
+    
     
     ; Result = (98 - 8) % 10 = 9
     ; 9 % 10 = 9
@@ -277,7 +308,7 @@ DIVISION
 MAIN
     BSF ADCON0, GO/DONE
     
-    MOVLW 0x39
+    MOVLW 0x64
     MOVWF NUMBER_7_SEGMENTS
     
     CALL DISPLAY
