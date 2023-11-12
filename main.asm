@@ -1,5 +1,13 @@
 #include <p18F4550.inc>
 
+CONFIG WDT=OFF ; disable watchdog timer
+CONFIG MCLRE = ON ; MCLEAR Pin on
+CONFIG CPUDIV =  OSC1_PLL2;
+CONFIG PLLDIV = 1;
+CONFIG DEBUG = OFF ; Disable Debug Mode
+CONFIG FOSC = HS ; oscillator mode
+CONFIG PBADEN = OFF
+    
 ;Constant variable
 COUNT_TIMER equ 0x0A
 VARLCD0	equ b'0111111'
@@ -18,7 +26,7 @@ REGA	equ 0x01
 REGB	equ 0x02
 REGC	equ 0x03
 	
-COUNT	equ 0x08
+COUNT	equ 0xFF
 		
 DIVISION_NUMERATOR	equ 0x0A ; The numerator of the division
 DIVISION_DENOMINATOR	equ 0x0B ; The denominator of the division
@@ -166,7 +174,7 @@ DISPLAY_DECODER
     FIVE
     MOVLW 0x05
     CPFSEQ DIVISION_MODULO ; SKIP if f = W
-    GOTO TWO; NO
+    GOTO SIX; NO
     MOVLW VARLCD5 ; YES
     RETURN
     SIX
@@ -200,6 +208,8 @@ DISPLAY
     ; DISPLAY 7
     ; RA0
     
+    
+    MOVFF NUMBER_7_SEGMENTS, REGC
     MOVFF NUMBER_7_SEGMENTS, DIVISION_NUMERATOR
     MOVLW 0x0A ; 10
     MOVWF DIVISION_DENOMINATOR
@@ -210,19 +220,26 @@ DISPLAY
     
     CALL DELAY
     
-    BSF PORTA, RA1
-    CALL DELAY
-    
-    BSF PORTA, RA2
-    CALL DELAY
-    
-    BSF PORTA, RA3
-    CALL DELAY
-    
     ; Result = (987 - 7) / 10 = 98
     ; 98 % 10 = 8
-    ; DISPLAY 8
-    ; RA1
+    
+    MOVFF DIVISION_MODULO, WREG
+    SUBWF REGC, W ; SOUSTRACTION
+    MOVWF DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    CALL DIVISION 
+    ; Je récup le resultat de la division q = 2 r = 0
+    ; je calcul le modulo en refaisant la division 2 % 10
+    MOVFF DIVISION_RESULT, DIVISION_NUMERATOR
+    MOVLW 0x0A
+    MOVWF DIVISION_DENOMINATOR
+    CALL DIVISION
+    CALL DISPLAY_DECODER
+    MOVWF PORTD
+    BSF PORTA, RA1
+    
+    CALL DELAY
     
     ; Result = (98 - 8) % 10 = 9
     ; 9 % 10 = 9
@@ -241,14 +258,6 @@ DISPLAY
     ;CALL DELAY
     
     RETURN
-    
-    
-_DISPLAY
-    MOVLW VARLCD3
-    MOVWF PORTD
-    BSF PORTA, RA2
-    CALL DELAY
-    RETURN
 
 DIVISION
     CLRF DIVISION_RESULT ; Init Result
@@ -266,8 +275,9 @@ DIVISION
     RETURN
 
 MAIN
+    BSF ADCON0, GO/DONE
     
-    MOVLW 0x18
+    MOVLW 0x39
     MOVWF NUMBER_7_SEGMENTS
     
     CALL DISPLAY
