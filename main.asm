@@ -122,6 +122,8 @@ IRQ_HANDLE
 AD_CONVERSION
     BCF PIR1, ADIF ; Init back ADIF to 0x00
     MOVFF ADRESH, PORTB ; Start the conversion here ..
+    MOVF PORTB, WREG
+    MOVWF NUMBER_7_SEGMENTS
     RETFIE
     
 TMR2_IF ; Flag TMR2IF Raised
@@ -319,8 +321,7 @@ DIVISION
 MAIN
     BSF ADCON0, GO/DONE
     
-    MOVLW 0x87
-    MOVWF NUMBER_7_SEGMENTS
+
     
     CALL DISPLAY
     
