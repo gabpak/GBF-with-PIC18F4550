@@ -23,9 +23,10 @@ VARLCD9	equ b'1101111'
 VARLCDE equ b'1000000' ; Error
 	
 ; MEMORY EMPLACEMENT
-REGA	equ 0x01
-REGB	equ 0x02
-REGC	equ 0x03
+REGA		equ 0x01
+REGB		equ 0x02
+REGC		equ 0x03
+FLAG_16BIT__N	equ 0x04
 	
 COUNT	equ 0xFF
 		
@@ -48,6 +49,16 @@ OctetC_L    equ 0x25 ; C: xxxxxxxx 00000000
     
 OctetD_H    equ 0x26 ; D: 00000000 xxxxxxxx
 OctetD_L    equ 0x27 ; D: xxxxxxxx 00000000
+    
+OctetE_H    equ 0x28 ; D: 00000000 xxxxxxxx
+OctetE_L    equ 0x29 ; D: xxxxxxxx 00000000
+    
+OctetF_H    equ 0x2A ; D: 00000000 xxxxxxxx
+OctetF_L    equ 0x2B ; D: xxxxxxxx 00000000
+    
+OctetG_H    equ 0x2C ; D: 00000000 xxxxxxxx
+OctetG_L    equ 0x2D ; D: xxxxxxxx 00000000
+
 
 ; Program START
     
@@ -92,6 +103,7 @@ INIT
     CLRF REGA
     CLRF REGB
     CLRF REGC
+    CLRF FLAG_16BIT__N
     
     ; 8 Bit division
     CLRF DIVISION_NUMERATOR
@@ -108,6 +120,12 @@ INIT
     CLRF OctetC_H
     CLRF OctetD_L
     CLRF OctetD_H
+    CLRF OctetE_L
+    CLRF OctetE_H
+    CLRF OctetF_L
+    CLRF OctetF_H
+    CLRF OctetG_L
+    CLRF OctetG_H
     
     MOVLW COUNT_TIMER
     MOVWF COUNT
@@ -323,69 +341,174 @@ DISPLAY
     CALL DIVISION
     CALL DISPLAY_DECODER
     MOVWF PORTD
-    BSF PORTA, RA3
-    
+    BSF PORTA, RA3  
     CALL DELAY
-    
     RETURN
 
-; 16 bits comparator
-COMPARE_16BITS
+COMPARE_16BITS_C_AND_B ; 16 bits comparator C - B and raise flag
     MOVF OctetB_H, WREG
-    SUBWF OctetA_H, WREG ; F - WREG => WREG
+    SUBWF OctetC_H, WREG ; C - B => WREG
     BTFSS STATUS, Z ; Si Z = 1 alors SKIP
     GOTO RESULT; Z = 0
     MOVF OctetB_L, WREG; Z = 1
-    SUBWF OctetA_L, WREG ; F - W / 
+    SUBWF OctetC_L, WREG ; F - W / 
     RESULT
-	; if A=B then now Z=1.
-	; if B<A then now N=1
-	; if A<=B then now C=1.
+        ; if A=B then now Z=1.
+        ; if A<B then now C=0.
+        ; if A<=B then now C=1.
     RETURN
     
-; Substract A - B => C
 SUBTRACT_16BITS
-    MOVF OctetB_L, WREG    ; Load 0x62 into WREG        ; Copy WREG (0x62) to RAM location 0x01        ; Load 0x96 into WREG
-    SUBWF OctetA_L , WREG        ; F (loc 0x01) = F - B = 0x62 - 0x96 = 0xCC with C = 0
+    MOVF OctetB_L, WREG
+    SUBWF OctetA_L , WREG
     MOVWF OctetC_L
 
-    MOVF OctetB_H, WREG       ; Load 0x62 into WREG        ; Copy WREG (0x62) to RAM location 0x01        ; Load 0x96 into WREG
-    SUBWFB OctetA_H, WREG        ; F (loc 0x01) = F - B = 0x62 - 0x96 = 0xCC with C = 0
+    MOVF OctetB_H, WREG
+    SUBWFB OctetA_H, WREG
     MOVWF OctetC_H
     
     RETURN
     
+ ; Substract C - B => C
+SUBTRACT_C_MINUS_B_TO_C_16BITS
+    MOVF OctetB_H, WREG
+    SUBWF OctetC_H, WREG ; C - B => REG
+    MOVWF OctetC_H ; W => C
+
+    MOVF OctetB_L, WREG
+    SUBWF OctetC_L , WREG
+    MOVWF OctetC_L
+
+    RETURN
+       
 ; Increment 16 bits value in OctetA
-INCREMENT_16BITS
+INCREMENT_A_16BITS
     INCF OctetA_L, F ; Increment OctetA_L
     BTFSS STATUS, Z ; If Z = 1
-    GOTO INCREMENT_DONE ; Z = 1
+    GOTO INCREMENT_A_DONE ; Z = 1
     INCF OctetA_H, F ; Z = 0
-    INCREMENT_DONE
+    INCREMENT_A_DONE
     RETURN
     
+INCREMENT_B_16BITS
+    INCF OctetB_L, F ; Increment OctetA_L
+    BTFSS STATUS, Z ; If Z = 1
+    GOTO INCREMENT_B_DONE ; Z = 1
+    INCF OctetB_H, F ; Z = 0
+    INCREMENT_B_DONE
+    RETURN
+    
+INCREMENT_C_16BITS
+    INCF OctetC_L, F ; Increment OctetA_L
+    BTFSS STATUS, Z ; If Z = 1
+    GOTO INCREMENT_C_DONE ; Z = 1
+    INCF OctetC_H, F ; Z = 0
+    INCREMENT_C_DONE
+    RETURN
+    
+INCREMENT_D_16BITS
+    INCF OctetD_L, F ; Increment OctetA_L
+    BTFSS STATUS, Z ; If Z = 1
+    GOTO INCREMENT_D_DONE ; Z = 1
+    INCF OctetD_H, F ; Z = 0
+    INCREMENT_D_DONE
+    RETURN
+    
+    ; DECREMENT PART
+    
+; Decrement 16 bits value in OctetA
+DECREMENT_A_16BITS
+    DECF OctetA_L, F ; Decrement OctetA_L
+    BTFSS STATUS, N ; If N = 1 Then SKIP
+    GOTO DECREMENT_A_DONE ; N = 0
+    DECF OctetA_H, F ; N = 1
+    DECREMENT_A_DONE
+    RETURN
+    
+DECREMENT_B_16BITS
+    DECF OctetB_L, F ; Decrement OctetA_L
+    BTFSS STATUS, N ; If N = 1 Then SKIP
+    GOTO DECREMENT_B_DONE ; N = 0
+    DECF OctetB_H, F ; N = 1
+    DECREMENT_B_DONE
+    RETURN
+
+DECREMENT_C_16BITS
+    DECF OctetC_L, F
+    BTFSS STATUS, N ; If N = 1 Then SKIP
+    GOTO DECREMENT_C_DONE ; N = 0
+    DECF OctetC_H, F ; N = 1
+    DECREMENT_C_DONE
+    RETURN
+    
+; Decrement 16 bits value in OctetA
+DECREMENT_D_16BITS
+    DECF OctetD_L, F ; Decrement OctetA_L
+    BTFSS STATUS, N ; If N = 1 Then SKIP
+    GOTO DECREMENT_D_DONE ; N = 0
+    DECF OctetD_H, F ; N = 1
+    DECREMENT_D_DONE
+    RETURN
+
+    
+DIVIDE_LOOP_16BITS ; OctetD is the div result / OctectE is the modulo
+    CLRF OctetC_L
+    CLRF OctetC_H
+    CLRF OctetD_L
+    CLRF OctetD_H
+    CLRF OctetE_L
+    CLRF OctetE_H
+    CLRF OctetF_L
+    CLRF OctetF_H
+    CLRF OctetG_L
+    CLRF OctetG_H
+    
+    ; A = Numerator
+    ; B = Denominator
+    ; C = Reslult of the substraction
+    ; D = Result of the division
+    ; E = Modulo
+    ; F = Register
+    ; G = Register
+    
+    ; Ne doivent pas changer
+    ; Numerator OctetA_H / OctetA_L
+    ; Denominator OctetB_H / OctetB_L
+    
+    MOVFF OctetA_H, OctetC_H
+    MOVFF OctetA_L, OctetC_L
+    
+    INTERN_DIVIDE_LOOP_16BITS
+    CALL SUBTRACT_C_MINUS_B_TO_C_16BITS ; C - B => C
+    CALL COMPARE_16BITS_C_AND_B ; Put the flag
+    BTFSC STATUS, N ; If negatif
+    GOTO FINISH_LOOP; Yes
+    CALL INCREMENT_D_16BITS ; No
+    GOTO INTERN_DIVIDE_LOOP_16BITS
+    MOVFF OctetC_H, OctetE_H ; Modulo
+    MOVFF OctetC_L, OctetE_L ; Modulo
+    FINISH_LOOP
+    RETURN
+
+
 MAIN
-    
-    MOVLW 0xFE
+    MOVLW 0x00
     MOVWF OctetA_H
-    MOVLW 0xFF
+    MOVLW 0xBB
     MOVWF OctetA_L
-    ; 1782 0x06F6
+    ; 45
     
-    MOVLW 0x03
+    MOVLW 0x00
     MOVWF OctetB_H
-    MOVLW 0xD8
+    MOVLW 0x14
     MOVWF OctetB_L
-    ; 984 0x3D8
-    
-    ;CALL COMPARE_16BITS
-    ;CALL SUBTRACT_16BITS
-    CALL INCREMENT_16BITS
+    ; 10
+
+    CALL DIVIDE_LOOP_16BITS
     
     ;BSF ADCON0, GO/DONE
     ;CALL DISPLAY
-    
-    
+
     GOTO MAIN
     END
     
